@@ -1,19 +1,28 @@
 cmake_minimum_required(VERSION 3.11)
 project(jpegoptim)
 
-#Dependency on libJPEG.
-set(LIBJPEG_INCLUDE_DIR "" CACHE PATH "Path to directory containing header files of libJPEG (e.g. jpeglib.h).")
-set(LIBJPEG_LIBRARY_DIR "" CACHE FILEPATH "Path to static library file of libJPEG (e.g. libjpeg.a).")
-include_directories(${LIBJPEG_INCLUDE_DIR})
-add_library(libjpeg STATIC IMPORTED)
-set_target_properties(libjpeg PROPERTIES IMPORTED_LOCATION ${LIBJPEG_LIBRARY_DIR})
+SET(LIBRARY_DISCOVER_METHOD "CPM" CACHE STRING
+        "Tool to use for discovering dependencies; options are: VCPKG, PKG_CONFIG, CPM")
 
-#Source files.
-file(GLOB jpegoptim_SRC "*.c") #Adds all .c files in the source directory.
+file(GLOB jpegoptim_SRC "${PROJECT_SOURCE_DIR}/src/*.c")
+add_executable(${PROJECT_NAME} ${jpegoptim_SRC})
 
-#Header files.
-include_directories("${PROJECT_SOURCE_DIR}") #Adds all .h files in the source directory.
+IF(${LIBRARY_DISCOVER_METHOD} STREQUAL "VCPKG")
+	FIND_PACKAGE(jpeg CONFIG REQUIRED)
+ELSEIF(${LIBRARY_DISCOVER_METHOD} STREQUAL "PKG_CONFIG")
+	INCLUDE(FindPkgConfig)
+	PKG_CHECK_MODULES(JPEG REQUIRED jpeg)
+	TARGET_INCLUDE_DIRECTORIES(${PROJECT_NAME} PUBLIC ${JPEG_INCLUDE_DIRS})
+	TARGET_LINK_LIBRARIES(${PROJECT_NAME} PUBLIC ${JPEG_LIBRARIES})
+ELSEIF(${LIBRARY_DISCOVER_METHOD} STREQUAL "CPM")
+	INCLUDE(cmake/CPM.cmake)
+	CPMADDPACKAGE(GITHUB_REPOSITORY libjpeg-turbo/libjpeg-turbo
+		NAME libjpeg
+		GIT_TAG 2.1.2)
+	TARGET_INCLUDE_DIRECTORIES(${PROJECT_NAME} PUBLIC ${libjpeg_SOURCE_DIR}
+		${libjpeg_BINARY_DIR})
+	TARGET_LINK_LIBRARIES(${PROJECT_NAME} PRIVATE jpeg-static)
+ENDIF()
 
-#Build the binary!
-add_executable(jpegoptim ${jpegoptim_SRC})
-target_link_libraries(jpegoptim libjpeg)
+ADD_COMPILE_DEFINITIONS(_CRT_SECURE_NO_WARNINGS)
+TARGET_INCLUDE_DIRECTORIES(${PROJECT_NAME} PRIVATE inc)
